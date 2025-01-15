@@ -20,6 +20,12 @@ from .tuya_ble import TuyaBLEData, TuyaBLEEntity
 
 _LOGGER = logging.getLogger(__name__)
 
+# Tuya BLE Protocol Constants
+CMD_ON = 0x01
+CMD_OFF = 0x00
+CMD_BRIGHTNESS = 0x02
+CMD_COLOR_TEMP = 0x03
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -30,9 +36,8 @@ async def async_setup_entry(
     
     entities = []
     
-    for device in data.devices:
-        if device.category == "dj":  # Light category
-            entities.append(TuyaBLELight(device, data.device_info))
+    if data.device:  # Use existing TuyaBLEDevice instance
+        entities.append(TuyaBLELight(data.device))
     
     async_add_entities(entities)
 
@@ -42,48 +47,89 @@ class TuyaBLELight(TuyaBLEEntity, LightEntity):
     _attr_supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}
     _attr_supported_features = LightEntityFeature.TRANSITION
 
-    def __init__(self, device, device_info):
+    def __init__(self, device) -> None:
         """Initialize the light."""
-        super().__init__(device, device_info)
-        self._attr_unique_id = f"{device.uuid}_light"
-        self._attr_name = f"{device.name} Light"
+        super().__init__(device)
+        self._attr_unique_id = f"{device.address}_light"
+        self._attr_name = f"Tuya Light {device.address[-6:]}"
+        self._is_on = False
+        self._brightness = 0
+        self._color_temp = 0
 
     @property
     def is_on(self) -> bool:
         """Return true if light is on."""
-        return self.device.datapoints.get("switch_led", False)
+        return self._is_on
 
     @property
     def brightness(self) -> int | None:
         """Return the brightness of this light between 0..255."""
-        bright = self.device.datapoints.get("bright_value_v2")
-        if bright is not None:
-            return int(bright * 255 / 100)
-        return None
+        return self._brightness
 
     @property
     def color_temp(self) -> int | None:
         """Return the color temperature in mireds."""
-        temp = self.device.datapoints.get("temp_value_v2")
-        if temp is not None:
-            # Convert the device's color temp value to mireds
-            # You may need to adjust the conversion based on your device's range
-            return int(temp * 347 / 100 + 153)
-        return None
+        return self._color_temp
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        if not self.is_on:
-            await self.device.set_dp("switch_led", True)
-
-        if ATTR_BRIGHTNESS in kwargs:
-            brightness = int(kwargs[ATTR_BRIGHTNESS] * 100 / 255)
-            await self.device.set_dp("bright_value_v2", brightness)
-
-        if ATTR_COLOR_TEMP in kwargs:
-            temp = int((kwargs[ATTR_COLOR_TEMP] - 153) * 100 / 347)
-            await self.device.set_dp("temp_value_v2", temp)
+        try:
+            # Ensure connection using existing TuyaBLEDevice connection handling
+            await self.device._ensure_connected()
+            
+            # Build command packet
+            command = bytearray([CMD_ON])
+            
+            if ATTR_BRIGHTNESS in kwargs:
+                brightness = int(kwargs[ATTR_BRIGHTNESS] * 100 / 255)
+                command.extend([CMD_BRIGHTNESS, brightness])
+                self._brightness = kwargs[ATTR_BRIGHTNESS]
+                
+            if ATTR_COLOR_TEMP in kwargs:
+                temp = int((kwargs[ATTR_COLOR_TEMP] - 153) * 100 / 347)
+                command.extend([CMD_COLOR_TEMP, temp])
+                self._color_temp = kwargs[ATTR_COLOR_TEMP]
+            
+            # Send command using existing send_packet method
+            await self.device._send_packet_while_connected(
+                self.device.TuyaBLECode.FUN_SENDER_CONTROL,
+                command,
+                0,
+                True
+            )
+            self._is_on = True
+            
+        except Exception as error:
+            _LOGGER.error("Error turning on light: %s", error)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await self.device.set_dp("switch_led", False)
+        try:
+            await self.device._ensure_connected()
+            command = bytearray([CMD_OFF])
+            await self.device._send_packet_while_connected(
+                self.device.TuyaBLECode.FUN_SENDER_CONTROL,
+                command,
+                0,
+                True
+            )
+            self._is_on = False
+        except Exception as error:
+            _LOGGER.error("Error turning off light: %s", error)
+
+    def _handle_notification(self, data: bytes) -> None:
+        """Handle incoming data from the device."""
+        # Example notification handler - adjust based on your device's protocol
+        try:
+            if data[0] == CMD_ON:
+                self._is_on = True
+            elif data[0] == CMD_OFF:
+                self._is_on = False
+            elif data[0] == CMD_BRIGHTNESS:
+                self._brightness = int(data[1] * 255 / 100)
+            elif data[0] == CMD_COLOR_TEMP:
+                self._color_temp = int(data[1] * 347 / 100 + 153)
+            
+            self.async_write_ha_state()
+        except Exception as error:
+            _LOGGER.error("Error handling notification: %s", error)
