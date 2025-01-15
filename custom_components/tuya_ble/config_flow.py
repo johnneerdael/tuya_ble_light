@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ACCESS_ID, CONF_ACCESS_SECRET, CONF_ADDRESS, CONF_ENDPOINT
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN, TuyaRegion, TUYA_BLE_SERVICE
+from .const import DOMAIN, TUYA_BLE_SERVICE
 from .cloud import HASSTuyaBLEDeviceManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,9 +73,7 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_ACCESS_ID): str,
                     vol.Required(CONF_ACCESS_SECRET): str,
-                    vol.Required("region"): vol.In(
-                        {region.value: region.value for region in TuyaRegion}
-                    ),
+                    vol.Required("region"): vol.In(REGION_ENDPOINTS),
                 }
             ),
             errors=errors,

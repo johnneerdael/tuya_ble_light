@@ -12,9 +12,9 @@
                 "data": {
                     "access_id": "IoT Access ID",
                     "access_secret": "IoT Access Secret",
-                    "region": "IoT Region"
+                    "region": "IoT Platform Region"
                 },
-                "description": "Enter your Tuya IoT platform credentials and region. These can be found in the Tuya IoT Platform under Cloud Development."
+                "description": "Select your IoT Platform region and enter your credentials. These can be found in the Tuya IoT Platform under Cloud Development."
             },
             "device": {
                 "data": {
