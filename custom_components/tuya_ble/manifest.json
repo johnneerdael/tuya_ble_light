@@ -4,17 +4,16 @@
   "bluetooth": [
     {
       "connectable": true,
-      "service_data_uuid": "0000fd50-0000-1001-8001-00805f9b07d0"
+      "service_data_uuid": "0000fd50-0000-1001-8001-00805f9b07d0",
+      "manufacturer_id": 2000,
+      "manufacturer_data_start": [0]
     }
   ],
   "codeowners": ["@johnneerdael"],
   "config_flow": true,
   "dependencies": ["bluetooth_adapters"],
   "documentation": "https://github.com/johnneerdael/tuya_ble_light",
-  "requirements": [
-    "tuya-iot-py-sdk==0.6.6",
-    "pycryptodome>=3.17.0"
-  ],
+  "requirements": [],
   "iot_class": "local_push",
   "version": "0.4.0"
 }

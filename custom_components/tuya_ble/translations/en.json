@@ -1,27 +1,15 @@
 {
     "config": {
         "abort": {
-            "no_unconfigured_devices": "No unconfigured devices found.",
-            "tuya_sdk_not_installed": "Tuya IoT SDK not installed. Please install required dependencies: {command}"
-        },
-        "error": {
-            "invalid_auth": "Invalid IoT platform credentials",
-            "device_not_registered": "Device is not registered in Tuya IoT platform"
+            "no_unconfigured_devices": "No unconfigured devices found."
         },
         "step": {
             "user": {
                 "data": {
-                    "access_id": "IoT Access ID",
-                    "access_secret": "IoT Access Secret",
-                    "region": "IoT Platform Region"
+                    "address": "Device",
+                    "name": "Name"
                 },
-                "description": "Select your IoT Platform region and enter your credentials. These can be found in the Tuya IoT Platform under Cloud Development."
-            },
-            "device": {
-                "data": {
-                    "address": "Tuya BLE device"
-                },
-                "description": "Select a Tuya BLE device to set up. The device must be registered in your Tuya IoT project."
+                "description": "Select a Tuya BLE device to set up"
             }
         }
     }
