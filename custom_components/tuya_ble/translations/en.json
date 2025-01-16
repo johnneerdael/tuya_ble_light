@@ -1,7 +1,8 @@
 {
     "config": {
         "abort": {
-            "no_unconfigured_devices": "No unconfigured devices found."
+            "no_unconfigured_devices": "No unconfigured devices found.",
+            "tuya_sdk_not_installed": "Tuya IoT SDK not installed. Please install required dependencies: {command}"
         },
         "error": {
             "invalid_auth": "Invalid IoT platform credentials",

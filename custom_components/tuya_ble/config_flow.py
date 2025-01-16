@@ -6,11 +6,17 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components.bluetooth import async_discovered_service_info
-from homeassistant.config_entries import ConfigFlow, ConfigEntries, ConfigEntry
+from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
 from homeassistant.core import callback
+
+try:
+    from tuya_iot import TuyaOpenAPI, AuthType
+    TUYA_IMPORT_OK = True
+except ImportError:
+    TUYA_IMPORT_OK = False
 
 from .const import (
     DOMAIN,
@@ -47,6 +53,14 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle IoT platform credentials input."""
         errors = {}
 
+        if not TUYA_IMPORT_OK:
+            return self.async_abort(
+                reason="tuya_sdk_not_installed",
+                description_placeholders={
+                    "command": "pip install tuya-iot-py-sdk==0.6.6 pycryptodome>=3.17.0"
+                },
+            )
+
         if user_input is not None:
             # Add endpoint based on selected region
             region = user_input["region"]
@@ -57,9 +71,20 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             }
 
             try:
-                # We'll validate credentials later when actually needed
-                self._auth_data = auth_data
-                return await self.async_step_device()
+                api = TuyaOpenAPI(
+                    auth_data[CONF_ENDPOINT],
+                    auth_data[CONF_ACCESS_ID],
+                    auth_data[CONF_ACCESS_SECRET],
+                    auth_type=AuthType.CUSTOM
+                )
+                response = await self.hass.async_add_executor_job(api.connect)
+                
+                if not response.get("success", False):
+                    errors["base"] = "invalid_auth"
+                else:
+                    self._auth_data = auth_data
+                    return await self.async_step_device()
+                    
             except Exception as err:
                 _LOGGER.exception("Unexpected error validating credentials")
                 errors["base"] = "invalid_auth"
