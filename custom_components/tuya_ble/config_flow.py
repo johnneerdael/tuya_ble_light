@@ -9,6 +9,7 @@ from homeassistant.components.bluetooth import async_discovered_service_info
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ACCESS_ID, CONF_ACCESS_SECRET, CONF_ADDRESS, CONF_ENDPOINT
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, TUYA_BLE_SERVICE
 from .cloud import HASSTuyaBLEDeviceManager
@@ -24,16 +25,26 @@ REGION_ENDPOINTS = {
     "Western Europe": "https://openapi-weaz.tuyaeu.com",
 }
 
+@config_entries.HANDLERS.register(DOMAIN)
 class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Tuya BLE."""
 
     VERSION = 1
+    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
     def __init__(self) -> None:
         """Initialize the config flow."""
         self._discovered_devices = []
         self._auth_data = {}
         self._manager: HASSTuyaBLEDeviceManager | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return TuyaBLEOptionsFlow(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -71,8 +82,8 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ACCESS_ID): str,
-                    vol.Required(CONF_ACCESS_SECRET): str,
+                    vol.Required(CONF_ACCESS_ID): cv.string,
+                    vol.Required(CONF_ACCESS_SECRET): cv.string,
                     vol.Required("region"): vol.In(REGION_ENDPOINTS),
                 }
             ),
@@ -95,21 +106,11 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             address = user_input[CONF_ADDRESS]
-            
-            # Validate device is registered in IoT platform
-            try:
-                if self._manager:
-                    # You might want to add a method to verify the device exists
-                    # in your IoT project here
-                    pass
-            except Exception:
-                errors["base"] = "device_not_registered"
-            else:
-                await self.async_set_unique_id(address)
-                return self.async_create_entry(
-                    title=f"Tuya BLE {address[-6:]}",
-                    data={**self._auth_data, CONF_ADDRESS: address},
-                )
+            await self.async_set_unique_id(address)
+            return self.async_create_entry(
+                title=f"Tuya BLE {address[-6:]}",
+                data={**self._auth_data, CONF_ADDRESS: address},
+            )
 
         devices = {
             discovery_info.address: f"{discovery_info.name} ({discovery_info.address})"
@@ -121,3 +122,17 @@ class TuyaBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_ADDRESS): vol.In(devices)}),
             errors=errors,
         )
+
+
+class TuyaBLEOptionsFlow(config_entries.OptionsFlow):
+    """Handle Tuya BLE options."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        return self.async_show_form(step_id="init", data_schema=vol.Schema({}))
